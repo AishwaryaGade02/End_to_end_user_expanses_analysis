@@ -72,23 +72,6 @@ def display_optimization_overview(optimization):
             delta_color=payback_color
         )
     
-    # with col4:
-    #     # Portfolio efficiency score
-    #     if optimal_portfolio:
-    #         total_fees = optimal_portfolio.get('total_annual_fees', 0)
-    #         if total_fees > 0:
-    #             efficiency = (improvement / total_fees) * 100 if total_fees > 0 else 0
-    #             st.metric(
-    #                 "🎯 Efficiency Score",
-    #                 f"{efficiency:.0f}%",
-    #                 delta="ROI on annual fees"
-    #             )
-    #         else:
-    #             st.metric(
-    #                 "🎯 Portfolio Score",
-    #                 "A+",
-    #                 delta="No annual fees"
-    #             )
     
     # ==== DYNAMIC RECOMMENDATION CALLOUT ====
     st.markdown("---")
@@ -395,129 +378,6 @@ def display_optimization_overview(optimization):
     st.markdown("---")
     st.info("💡 **Pro Tip**: Focus on your top 2-3 spending categories first. Small changes in high-spending areas often yield the biggest rewards boost!")
 
-def display_current_vs_optimal(optimization, rewards_optimizer):
-    """Display detailed current vs optimal comparison"""
-    st.subheader("📊 Current Portfolio vs Optimal Portfolio")
-    
-    current_portfolio = optimization.get('current_portfolio', [])
-    optimal_portfolio = optimization.get('optimal_portfolio')
-    current_rewards = optimization.get('current_annual_rewards', 0)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 📋 Current Portfolio")
-        
-        if current_portfolio:
-            st.metric("Annual Rewards", f"${current_rewards:.2f}")
-            
-            # Display current cards
-            for i, card in enumerate(current_portfolio, 1):
-                with st.container():
-                    st.markdown(f"**Card {i}:** {card['card_brand']} {card['card_type']}")
-                    
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.caption(f"Credit Limit: ${card['credit_limit']:,.0f}")
-                    with col_b:
-                        st.caption(f"Card ID: {card['card_id']}")
-                    
-                    st.markdown("---")
-        else:
-            st.info("ℹ️ No current card data available")
-            st.caption("Using 1% default cashback assumption")
-    
-    with col2:
-        st.markdown("### 🎯 Optimal Portfolio")
-        
-        if optimal_portfolio:
-            st.metric(
-                "Optimized Annual Rewards", 
-                f"${optimal_portfolio['net_annual_rewards']:.2f}",
-                delta=f"+${optimization['optimization_results']['annual_improvement']:.2f}"
-            )
-            
-            # Display optimal cards
-            for i, card_detail in enumerate(optimal_portfolio['card_details'], 1):
-                with st.container():
-                    st.markdown(f"**Recommended Card {i}:** {card_detail['name']}")
-                    
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        if card_detail['annual_fee'] > 0:
-                            st.caption(f"Annual Fee: ${card_detail['annual_fee']}")
-                        else:
-                            st.caption("✅ No Annual Fee")
-                    
-                    with col_b:
-                        # Show best categories for this card
-                        best_categories = []
-                        for cat, rate in card_detail['categories'].items():
-                            if cat != 'default' and rate > 0.02:  # More than 2%
-                                best_categories.append(f"{cat} ({rate*100:.0f}%)")
-                        
-                        if best_categories:
-                            st.caption(f"Best for: {best_categories[0]}")
-                        else:
-                            st.caption(f"General rewards: {card_detail['categories']['default']*100:.1f}%")
-                    
-                    st.markdown("---")
-    
-    # Detailed comparison chart
-    if optimal_portfolio:
-        st.subheader("📈 Rewards Comparison by Category")
-        
-        spending_analysis = optimization.get('spending_analysis', {})
-        if spending_analysis and spending_analysis.get('annual_spending_by_category'):
-            
-            # Create comparison data
-            categories = []
-            current_rewards_by_cat = []
-            optimal_rewards_by_cat = []
-            
-            for category, spending in spending_analysis['annual_spending_by_category'].items():
-                categories.append(category)
-                
-                # Current rewards (assume 1% default)
-                current_reward = spending * 0.01
-                current_rewards_by_cat.append(current_reward)
-                
-                # Optimal rewards
-                best_rate = 0
-                for card_name in optimal_portfolio['cards']:
-                    card_info = rewards_optimizer.card_rewards_database[card_name]
-                    rate = card_info['categories'].get(category, card_info['categories']['default'])
-                    best_rate = max(best_rate, rate)
-                
-                optimal_reward = spending * best_rate
-                optimal_rewards_by_cat.append(optimal_reward)
-            
-            # Create comparison chart
-            fig = go.Figure()
-            
-            fig.add_trace(go.Bar(
-                name='Current Rewards',
-                x=categories,
-                y=current_rewards_by_cat,
-                marker_color='lightblue'
-            ))
-            
-            fig.add_trace(go.Bar(
-                name='Optimal Rewards',
-                x=categories,
-                y=optimal_rewards_by_cat,
-                marker_color='darkgreen'
-            ))
-            
-            fig.update_layout(
-                title="Current vs Optimal Rewards by Category",
-                xaxis_title="Spending Category",
-                yaxis_title="Annual Rewards ($)",
-                barmode='group',
-                height=400
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
 
 def display_card_comparison_table(optimization, rewards_optimizer):
     """Enhanced card comparison with better context and storytelling"""
@@ -951,9 +811,8 @@ def display_rewards_optimization_page(user_dataframes, selected_user_id):
         return
     
     # Main content tabs - Enhanced with more comprehensive analysis
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab3, tab4, tab5 = st.tabs([
         "🎯 Optimization Results", 
-        "📊 Current vs Optimal", 
         "💰 Card Comparison",
         "📈 Impact Analysis",
         "🔮 Recommendations"
@@ -961,9 +820,6 @@ def display_rewards_optimization_page(user_dataframes, selected_user_id):
     
     with tab1:
         display_optimization_overview(optimization)
-    
-    with tab2:
-        display_current_vs_optimal(optimization, rewards_optimizer)
     
     with tab3:
         display_card_comparison_table(optimization, rewards_optimizer)
