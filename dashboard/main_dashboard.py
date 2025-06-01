@@ -7,7 +7,7 @@ import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pages'))
 
-from src.data_preprocessing import DataPreprocessor
+from data_preprocessing import DataPreprocessor
 
 # Import all page modules
 from pages.overview_page import display_overview_page
