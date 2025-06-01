@@ -9,7 +9,7 @@ import sys
 import os
 
 # Import your ML predictive analyzer
-from src.predictive_analysis import MLPredictiveAnalyzer
+from predictive_analysis import MLPredictiveAnalyzer
 
 def display_future_expense_predictions(analyzer, user_id):
     """Display future expense predictions with automatic model training"""

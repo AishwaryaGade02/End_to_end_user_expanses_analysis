@@ -10,11 +10,11 @@ sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pages'
 from data_preprocessing import DataPreprocessor
 
 # Import all page modules
-from pages.overview_page import display_overview_page
-from pages.spending_page import display_spending_analysis_page
-from pages.merchant_page import display_merchant_analysis_page
-from pages.rewards_page import display_rewards_optimization_page
-from pages.predictive_page import display_ml_predictive_analytics_page
+from overview_page import display_overview_page
+from spending_page import display_spending_analysis_page
+from merchant_page import display_merchant_analysis_page
+from rewards_page import display_rewards_optimization_page
+from predictive_page import display_ml_predictive_analytics_page
 
 # Page configuration
 st.set_page_config(

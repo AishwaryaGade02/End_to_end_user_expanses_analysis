@@ -10,7 +10,7 @@ import os
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
-from src.spending_analysis import SpendingAnalyzer
+from spending_analysis import SpendingAnalyzer
 
 def display_spending_analysis_page(user_dataframes, selected_user_id):
     """Display the spending analysis page - REMOVED rewards optimization section"""

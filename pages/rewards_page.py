@@ -10,7 +10,7 @@ import os
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
-from src.rewards_analysis import RewardsOptimizer
+from rewards_analysis import RewardsOptimizer
 
 def display_optimization_overview(optimization):
     """FIXED: Enhanced optimization overview with proper pandas handling"""

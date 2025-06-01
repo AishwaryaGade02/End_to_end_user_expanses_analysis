@@ -9,7 +9,7 @@ import os
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
-from src.overview_analysis import OptimizedKPICalculator
+from overview_analysis import OptimizedKPICalculator
 
 def display_user_profile(profile):
     """Display user profile information"""

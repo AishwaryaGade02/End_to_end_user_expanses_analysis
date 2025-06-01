@@ -8,7 +8,7 @@ import os
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
-from src.merchant_analysis import MerchantAnalyzer
+from merchant_analysis import MerchantAnalyzer
 
 def display_merchant_analysis_page(user_dataframes, selected_user_id):
     """Display merchant analysis page - FIXED boolean condition"""
