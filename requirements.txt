@@ -5,3 +5,4 @@ plotly
 numpy
 python-dateutil
 scikit-learn
+py4j
