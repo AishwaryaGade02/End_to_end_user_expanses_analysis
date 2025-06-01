@@ -14,7 +14,7 @@ from pages.overview_page import display_overview_page
 from pages.spending_page import display_spending_analysis_page
 from pages.merchant_page import display_merchant_analysis_page
 from pages.rewards_page import display_rewards_optimization_page
-from pages.predictive_page import display_advanced_spending_analysis
+from pages.predictive_page import display_ml_predictive_analytics_page
 
 # Page configuration
 st.set_page_config(
@@ -203,7 +203,7 @@ def main():
         display_rewards_optimization_page(user_dataframes, selected_user_id)
         
     elif page == "🔍 Advanced Intelligence":
-        display_advanced_spending_analysis(user_dataframes, selected_user_id)
+        display_ml_predictive_analytics_page(user_dataframes, selected_user_id)
     
     # Performance metrics in sidebar
     if st.sidebar.checkbox("📊 Show Performance Metrics"):

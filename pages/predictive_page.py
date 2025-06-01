@@ -8,338 +8,489 @@ from datetime import datetime, timedelta
 import sys
 import os
 
-# Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
+# Import your ML predictive analyzer
+from src.predictive_analysis import MLPredictiveAnalyzer
 
-from src.spending_analysis import SpendingAnalyzer
-from src.predictive_analysis import PredictiveAnalyzer
-
-def display_overview_dashboard(analyzer, user_id, time_period, start_date=None, end_date=None):
-    """Enhanced overview dashboard with key metrics"""
+def display_future_expense_predictions(analyzer, user_id):
+    """Display future expense predictions with automatic model training"""
+    st.subheader("🔮 Future Expense Predictions")
     
-    st.subheader("📊 Spending Overview Dashboard")
+    # Auto-train models in background if not already trained
+    if user_id not in analyzer.trained_models:
+        with st.spinner("🤖 Training ML models on your data..."):
+            training_results = analyzer.train_models(user_id)
+            if not training_results['success']:
+                st.error(f"❌ Unable to create predictions: {training_results['error']}")
+                return
+            else:
+                st.success(f"✅ ML models trained successfully using {training_results['data_points']} months of data")
     
-    # Get comparison metrics
-    comparison_metrics = analyzer.get_comparison_metrics(user_id, time_period)
-    category_data = analyzer.get_category_breakdown(user_id, time_period, start_date, end_date)
-    
-    if comparison_metrics:
-        # Key metrics row
-        col1, col2, col3, col4, col5 = st.columns(5)
-        
-        with col1:
-            spending_change = comparison_metrics.get('spending_change_pct', 0)
-            st.metric(
-                "💰 Total Spending",
-                f"${comparison_metrics.get('current_spending', 0):,.2f}",
-                delta=f"{spending_change:+.1f}%",
-                delta_color="inverse" if spending_change > 0 else "normal"
-            )
-        
-        with col2:
-            transaction_change = comparison_metrics.get('transaction_change_pct', 0)
-            st.metric(
-                "🛒 Transactions",
-                f"{comparison_metrics.get('current_transactions', 0):,}",
-                delta=f"{transaction_change:+.1f}%"
-            )
-        
-        with col3:
-            avg_current = comparison_metrics.get('avg_transaction_current', 0)
-            avg_previous = comparison_metrics.get('avg_transaction_previous', 0)
-            avg_change = ((avg_current - avg_previous) / avg_previous * 100) if avg_previous > 0 else 0
-            st.metric(
-                "📊 Avg Transaction",
-                f"${avg_current:.2f}",
-                delta=f"{avg_change:+.1f}%"
-            )
-        
-        with col4:
-            # Calculate spending velocity (transactions per day)
-            days_in_period = 30 if time_period == '1_month' else 90
-            velocity = comparison_metrics.get('current_transactions', 0) / days_in_period
-            st.metric(
-                "⚡ Spending Velocity",
-                f"{velocity:.1f}/day",
-                delta="transactions per day"
-            )
-        
-        with col5:
-            # Calculate diversity score (number of categories used)
-            diversity_score = len(category_data) if not category_data.empty else 0
-            st.metric(
-                "🎯 Category Diversity",
-                f"{diversity_score}",
-                delta="active categories"
-            )
-    
-    st.markdown("---")
-    
-    # Enhanced visualizations
-    if not category_data.empty:
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            # Interactive spending distribution with drill-down
-            fig = px.sunburst(
-                category_data.head(10),
-                names='category',
-                values='total_spent',
-                title="Interactive Spending Distribution",
-                color='total_spent',
-                color_continuous_scale='viridis'
-            )
-            fig.update_traces(
-                hovertemplate="<b>%{label}</b><br>" +
-                            "Amount: $%{value:,.2f}<br>" +
-                            "Percentage: %{percentParent}<br>" +
-                            "<extra></extra>"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Top categories with enhanced metrics
-            st.subheader("🏆 Top Categories")
-            for i, row in category_data.head(5).iterrows():
-                with st.container():
-                    st.markdown(f"**{row['category']}**")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.metric("Amount", f"${row['total_spent']:,.2f}")
-                    with col_b:
-                        st.metric("Share", f"{row['percentage']:.1f}%")
-                    st.progress(row['percentage'] / 100)
-                    st.markdown("---")
-
-def display_category_deep_dive(analyzer, user_id, time_period, start_date=None, end_date=None):
-    """Deep dive into category analysis"""
-    
-    st.subheader("🛍️ Category Deep Dive Analysis")
-    
-    category_data = analyzer.get_category_breakdown(user_id, time_period, start_date, end_date)
-    
-    if category_data.empty:
-        st.warning("No category data available for the selected period.")
-        return
-    
-    # Category selection for detailed analysis
-    selected_category = st.selectbox(
-        "Select Category for Detailed Analysis",
-        options=category_data['category'].tolist(),
-        index=0
-    )
-    
-    # Category-specific insights
-    category_info = category_data[category_data['category'] == selected_category].iloc[0]
-    
-    col1, col2, col3, col4 = st.columns(4)
+    # Prediction controls
+    col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
-        st.metric("Total Spent", f"${category_info['total_spent']:,.2f}")
+        months_ahead = st.slider("Months to Predict", 3, 12, 6)
+    
     with col2:
-        st.metric("Transactions", f"{category_info['transaction_count']:,}")
+        # Auto-generate predictions button
+        if st.button("🎯 Generate Predictions", type="primary"):
+            with st.spinner("Generating predictions..."):
+                predictions = analyzer.predict_future_expenses(user_id, months_ahead)
+                st.session_state['predictions'] = predictions
+    
     with col3:
-        st.metric("Avg Transaction", f"${category_info['avg_transaction']:,.2f}")
-    with col4:
-        st.metric("% of Total", f"{category_info['percentage']:.1f}%")
+        # Show confidence level if predictions exist
+        if 'predictions' in st.session_state and st.session_state['predictions']['success']:
+            confidence = st.session_state['predictions']['confidence_level']
+            confidence_color = "🟢" if confidence == 'high' else "🟡" if confidence == 'medium' else "🔴"
+            st.metric(f"{confidence_color} Confidence", confidence.title())
     
-    # Enhanced category visualizations
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Category comparison chart
-        fig_comparison = px.bar(
-            category_data.head(10),
-            x='total_spent',
-            y='category',
-            orientation='h',
-            title="Category Spending Comparison",
-            color='total_spent',
-            color_continuous_scale='plasma',
-            text='total_spent'
-        )
-        fig_comparison.update_traces(
-            texttemplate='$%{text:,.0f}',
-            textposition='inside'
-        )
-        fig_comparison.update_layout(
-            yaxis={'categoryorder': 'total ascending'},
-            showlegend=False
-        )
-        st.plotly_chart(fig_comparison, use_container_width=True)
-    
-    with col2:
-        # Transaction frequency vs amount scatter
-        fig_scatter = px.scatter(
-            category_data,
-            x='transaction_count',
-            y='avg_transaction',
-            size='total_spent',
-            hover_name='category',
-            title="Transaction Patterns by Category",
-            labels={
-                'transaction_count': 'Number of Transactions',
-                'avg_transaction': 'Average Transaction ($)',
-                'total_spent': 'Total Spent'
-            }
-        )
-        st.plotly_chart(fig_scatter, use_container_width=True)
+    # Display predictions
+    if 'predictions' in st.session_state:
+        predictions = st.session_state['predictions']
+        
+        if predictions['success']:
+            # Key metrics
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("💰 Total Predicted", f"${predictions['total_predicted']:,.2f}")
+            with col2:
+                st.metric("📊 Monthly Average", f"${predictions['average_monthly']:,.2f}")
+            with col3:
+                trend_icon = "📈" if predictions['trend_direction'] == 'increasing' else "📉" if predictions['trend_direction'] == 'decreasing' else "➡️"
+                st.metric(f"{trend_icon} Trend", predictions['trend_direction'].title())
+            
+            # Main prediction visualization
+            pred_data = predictions['predictions']
+            pred_df = pd.DataFrame(pred_data)
+            
+            # Get historical data for context
+            # Replace the problematic section in your display_future_expense_predictions function:
 
-def display_predictive_insights(analyzer, user_id, time_period, show_predictions, show_anomalies):
-    """Display predictive insights and anomaly detection"""
-    
-    st.subheader("🔮 Predictive Insights & Anomaly Detection")
-    
-    # Initialize predictive analyzer
-    predictive_analyzer = PredictiveAnalyzer(analyzer.__dict__)
-    
-    if show_predictions:
-        st.subheader("📈 Spending Predictions")
-        
-        # Get predictions
-        predictions = predictive_analyzer.predict_spending(user_id, months_ahead=3)
-        
-        if 'error' not in predictions:
-            # Display predictions
-            pred_data = predictions.get('predictions', [])
-            if pred_data:
-                pred_df = pd.DataFrame(pred_data)
+# Get historical data for context
+        feature_df = analyzer.prepare_features(user_id)
+        if not feature_df.empty:
+            
+            feature_df['datetime'] = pd.to_datetime(feature_df['period'].astype(str))
+
+            # Filter data from 2012 onwards (or any specific start year you want)
+            start_year = 2012
+            feature_df = feature_df[feature_df['datetime'].dt.year >= start_year]
+            
+            if feature_df.empty:
+                st.warning(f"No data available from {start_year} onwards")
+                return
+            
+            # Prepare historical data with CORRECT datetime formatting
+            historical_df = feature_df[['period', 'total_spending', 'datetime']].copy()
+            historical_df['month_year'] = historical_df['datetime'].dt.strftime('%Y-%m')  # FIXED: Use 'datetime' instead of 'total_spending'
+            historical_df['type'] = 'Historical'
+            historical_df = historical_df.rename(columns={'total_spending': 'amount'})
+            
+            # Prepare predicted data
+            pred_viz_df = pred_df[['month_year', 'predicted_spending']].copy()
+            pred_viz_df['type'] = 'Predicted'
+            pred_viz_df = pred_viz_df.rename(columns={'predicted_spending': 'amount'})
+            
+            # Convert prediction dates to datetime for proper ordering
+            pred_viz_df['datetime'] = pd.to_datetime(pred_viz_df['month_year'])
+            
+            # Combine for visualization
+            historical_for_viz = historical_df[['month_year', 'amount', 'type', 'datetime']]
+            predicted_for_viz = pred_viz_df[['month_year', 'amount', 'type', 'datetime']]
                 
-                # Visualization
-                fig = go.Figure()
-                
-                # Add predictions
+            viz_df = pd.concat([historical_for_viz, predicted_for_viz])
+            viz_df = viz_df.sort_values('datetime')
+            
+            # Create main prediction chart
+            fig = go.Figure()
+            
+            # Historical spending line
+            historical_data = viz_df[viz_df['type'] == 'Historical']
+            if not historical_data.empty:
                 fig.add_trace(go.Scatter(
-                    x=pred_df['month'],
-                    y=pred_df['predicted_spending'],
+                    x=historical_data['datetime'],  # Use datetime for x-axis
+                    y=historical_data['amount'],
+                    mode='lines+markers',
+                    name='Historical Spending',
+                    line=dict(color='#2E86AB', width=3),
+                    marker=dict(size=6, color='#2E86AB'),
+                    hovertemplate="<b>%{x|%Y-%m}</b><br>Amount: $%{y:,.2f}<extra></extra>"
+                ))
+            
+            # Predicted spending line
+            predicted_data = viz_df[viz_df['type'] == 'Predicted']
+            if not predicted_data.empty:
+                fig.add_trace(go.Scatter(
+                    x=predicted_data['datetime'],  # Use datetime for x-axis
+                    y=predicted_data['amount'],
                     mode='lines+markers',
                     name='Predicted Spending',
-                    line=dict(color='red', width=2, dash='dash')
+                    line=dict(color='#F18F01', width=3, dash='dash'),
+                    marker=dict(size=8, symbol='diamond', color='#F18F01'),
+                    hovertemplate="<b>%{x|%Y-%m}</b><br>Predicted: $%{y:,.2f}<extra></extra>"
                 ))
                 
+                # Add confidence bands for predictions only
+                confidence_multiplier = {'high': 0.05, 'medium': 0.10, 'low': 0.15}[predictions['confidence_level']]
+                upper_bound = predicted_data['amount'] * (1 + confidence_multiplier)
+                lower_bound = predicted_data['amount'] * (1 - confidence_multiplier)
+                
+                # Upper confidence bound
+                fig.add_trace(go.Scatter(
+                    x=predicted_data['datetime'],  # FIXED: Use 'datetime' instead of 'month_year'
+                    y=upper_bound,
+                    mode='lines',
+                    line=dict(width=0),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+                
+                # Lower confidence bound with fill
+                fig.add_trace(go.Scatter(
+                    x=predicted_data['datetime'],  # FIXED: Use 'datetime' instead of 'month_year'
+                    y=lower_bound,
+                    mode='lines',
+                    line=dict(width=0),
+                    fillcolor='rgba(241, 143, 1, 0.2)',
+                    fill='tonexty',
+                    name='Confidence Range',
+                    hoverinfo='skip'
+                ))
+            
+            # Add vertical line to separate historical from predicted
+            if not historical_data.empty and not predicted_data.empty:
+                # Use the last historical date for separation
+                last_historical_date = historical_data['datetime'].max()
+                fig.add_vline(
+                x=last_historical_date.timestamp() * 1000,  # Convert to milliseconds for plotly
+                line_dash="dot",
+                line_color="gray",
+                annotation_text="Historical | Predicted",
+                annotation_position="top"
+            )
+            
+            # Set proper date range for x-axis
+            if not viz_df.empty:
+                min_date = viz_df['datetime'].min()
+                max_date = viz_df['datetime'].max()
+                
                 fig.update_layout(
-                    title="3-Month Spending Predictions",
+                    title="Future Expense Predictions Based on Historical Patterns",
                     xaxis_title="Time Period",
-                    yaxis_title="Spending ($)",
-                    hovermode='x unified'
+                    yaxis_title="Monthly Spending ($)",
+                    height=600,
+                    hovermode='x unified',
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                    ),
+                    xaxis=dict(
+                        type='date',
+                        range=[min_date, max_date],
+                        tickformat='%Y-%m',
+                        tickangle=45,
+                        dtick="M6"  # Show ticks every 6 months
+                    )
                 )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Predictions summary table
+            st.subheader("📋 Monthly Breakdown")
+            
+            # Add trend indicators to table
+            display_df = pred_df.copy()
+            display_df['trend'] = ''
+            for i in range(1, len(display_df)):
+                current = display_df.iloc[i]['predicted_spending']
+                previous = display_df.iloc[i-1]['predicted_spending']
+                if current > previous * 1.02:  # 2% threshold
+                    display_df.iloc[i, display_df.columns.get_loc('trend')] = '📈'
+                elif current < previous * 0.98:
+                    display_df.iloc[i, display_df.columns.get_loc('trend')] = '📉'
+                else:
+                    display_df.iloc[i, display_df.columns.get_loc('trend')] = '➡️'
+            
+            st.dataframe(
+                display_df[['month_name', 'predicted_spending', 'trend']],
+                column_config={
+                    "month_name": st.column_config.TextColumn("Month"),
+                    "predicted_spending": st.column_config.NumberColumn("Predicted Spending", format="$%,.2f"),
+                    "trend": st.column_config.TextColumn("Trend", width="small")
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # AI Insights
+            st.subheader("🧠 AI Insights")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if predictions['trend_direction'] == 'increasing':
+                    st.warning("📈 **Spending Trend: Increasing**")
+                    st.markdown("""
+                    **Recommendations:**
+                    - Monitor discretionary categories
+                    - Set up spending alerts
+                    - Review recurring subscriptions
+                    """)
+                elif predictions['trend_direction'] == 'decreasing':
+                    st.success("📉 **Spending Trend: Decreasing**")
+                    st.markdown("""
+                    **Opportunities:**
+                    - Increase savings rate
+                    - Consider investments
+                    - Build emergency fund
+                    """)
+                else:
+                    st.info("➡️ **Spending Trend: Stable**")
+                    st.markdown("""
+                    **Maintain:**
+                    - Current spending habits
+                    - Regular budget reviews
+                    - Consistent savings
+                    """)
+            
+            with col2:
+                # Seasonal insights
+                seasonal_months = ['December', 'November', 'January']  # Holiday seasons
+                high_months = [p for p in pred_data if any(month in p['month_name'] for month in seasonal_months)]
                 
-                st.plotly_chart(fig, use_container_width=True)
+                if high_months:
+                    st.info("🎄 **Seasonal Pattern Detected**")
+                    st.markdown("Higher spending predicted during holiday months")
                 
-                # Prediction summary
-                trend_direction = predictions.get('trend_direction', 'stable')
-                recent_avg = predictions.get('recent_average', 0)
-                confidence = predictions.get('confidence', 'low')
-                
-                st.info(f"📊 **Prediction Summary**: Your spending trend is {trend_direction}. "
-                       f"Recent average: ${recent_avg:.2f}. Confidence: {confidence}")
-        else:
-            st.warning(predictions['error'])
-    
-    if show_anomalies:
-        st.subheader("🚨 Anomaly Detection")
+                # Budget suggestions
+                avg_spending = predictions['average_monthly']
+                st.metric("💡 Suggested Monthly Budget", f"${avg_spending * 1.1:,.2f}")
+                st.caption("10% buffer added for unexpected expenses")
         
-        anomalies = predictive_analyzer.detect_anomalies(user_id, time_period)
+        else:
+            st.error(f"❌ Prediction failed: {predictions['error']}")
+
+def display_anomaly_detection_section(analyzer, user_id):
+    """Display anomaly detection with simplified interface"""
+    st.subheader("🚨 Spending Anomaly Detection")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("""
+        Automatically detect unusual spending patterns that significantly deviate 
+        from your normal behavior using advanced statistical analysis.
+        """)
+    
+    with col2:
+        sensitivity = st.selectbox(
+            "Detection Sensitivity",
+            options=[("High Sensitivity", 1.5), ("Medium Sensitivity", 2.0), ("Low Sensitivity", 2.5)],
+            index=1,
+            format_func=lambda x: x[0]
+        )
+        
+        if st.button("🔍 Analyze Patterns"):
+            with st.spinner("Analyzing spending patterns..."):
+                anomalies = analyzer.detect_spending_anomalies(user_id, sensitivity[1])
+                st.session_state['anomalies'] = anomalies
+    
+    # Display results
+    if 'anomalies' in st.session_state:
+        anomalies = st.session_state['anomalies']
         
         if anomalies:
-            amount_anomalies = anomalies.get('amount_anomalies', 0)
+            # Summary metrics
+            col1, col2, col3 = st.columns(3)
             
-            if amount_anomalies > 0:
-                st.warning(f"🚨 Detected {amount_anomalies} unusual transactions (significantly above average)")
+            with col1:
+                st.metric("🚨 Anomalies Found", anomalies['anomaly_count'])
+            with col2:
+                st.metric("📊 Average Spending", f"${anomalies['mean_spending']:,.2f}")
+            with col3:
+                st.metric("⚠️ Alert Threshold", f"${anomalies['threshold_upper']:,.2f}")
+            
+            if anomalies['anomaly_count'] > 0:
+                st.warning(f"⚠️ Found {anomalies['anomaly_count']} unusual spending periods")
                 
-                # Show anomaly details
-                anomaly_transactions = anomalies.get('anomaly_transactions', [])
-                if anomaly_transactions:
-                    anomaly_df = pd.DataFrame(anomaly_transactions)
+                # Visualization
+                feature_df = analyzer.prepare_features(user_id)
+                if not feature_df.empty:
+                    fig = go.Figure()
+                    
+                    # All spending data
+                    fig.add_trace(go.Scatter(
+                        x=feature_df['period'].astype(str),
+                        y=feature_df['total_spending'],
+                        mode='lines+markers',
+                        name='Monthly Spending',
+                        line=dict(color='#2E86AB', width=2),
+                        marker=dict(size=6, color='#2E86AB')
+                    ))
+                    
+                    # Highlight anomalies
+                    anomaly_data = feature_df[feature_df['period'].astype(str).isin(anomalies['anomaly_periods'])]
+                    if not anomaly_data.empty:
+                        fig.add_trace(go.Scatter(
+                            x=anomaly_data['period'].astype(str),
+                            y=anomaly_data['total_spending'],
+                            mode='markers',
+                            name='Anomalous Spending',
+                            marker=dict(
+                                size=15,
+                                color='red',
+                                symbol='x-thin',
+                                line=dict(width=2, color='darkred')
+                            )
+                        ))
+                    
+                    # Add threshold lines
+                    fig.add_hline(
+                        y=anomalies['threshold_upper'],
+                        line_dash="dash",
+                        line_color="red",
+                        annotation_text="Upper Alert Threshold",
+                        annotation_position="bottom right"
+                    )
+                    
+                    fig.add_hline(
+                        y=anomalies['mean_spending'],
+                        line_dash="dot",
+                        line_color="green",
+                        annotation_text="Average Spending",
+                        annotation_position="top right"
+                    )
+                    
+                    fig.update_layout(
+                        title="Spending Pattern Analysis - Anomaly Detection",
+                        xaxis_title="Time Period",
+                        yaxis_title="Monthly Spending ($)",
+                        height=500,
+                        hovermode='x unified'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Anomaly details table
+                if anomalies['anomaly_details']:
+                    st.subheader("🔍 Anomaly Details")
+                    anomaly_df = pd.DataFrame(anomalies['anomaly_details'])
+                    anomaly_df['period'] = anomaly_df['period'].astype(str)
+                    anomaly_df['deviation'] = ((anomaly_df['total_spending'] - anomalies['mean_spending']) / anomalies['mean_spending'] * 100).round(1)
+                    
                     st.dataframe(
                         anomaly_df,
                         column_config={
-                            "date": "Date",
-                            "amount": st.column_config.NumberColumn("Amount", format="$%.2f"),
-                            "merchant_id": "Merchant ID"
+                            "period": "Period",
+                            "total_spending": st.column_config.NumberColumn("Spending", format="$%,.2f"),
+                            "transaction_count": "Transactions",
+                            "deviation": st.column_config.NumberColumn("Deviation %", format="%.1f%%")
                         },
-                        use_container_width=True
+                        use_container_width=True,
+                        hide_index=True
                     )
             else:
-                st.success("✅ No unusual spending patterns detected in your recent transactions.")
+                st.success("✅ No anomalies detected - Your spending patterns are consistent!")
+                
+                # Still show the spending pattern chart
+                feature_df = analyzer.prepare_features(user_id)
+                if not feature_df.empty:
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Scatter(
+                        x=feature_df['period'].astype(str),
+                        y=feature_df['total_spending'],
+                        mode='lines+markers',
+                        name='Monthly Spending',
+                        line=dict(color='#28a745', width=3),
+                        marker=dict(size=8, color='#28a745'),
+                        fill='tonexty'
+                    ))
+                    
+                    fig.add_hline(
+                        y=anomalies['mean_spending'],
+                        line_dash="dot",
+                        line_color="green",
+                        annotation_text="Average Spending"
+                    )
+                    
+                    fig.update_layout(
+                        title="Your Consistent Spending Pattern",
+                        xaxis_title="Time Period",
+                        yaxis_title="Monthly Spending ($)",
+                        height=400
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
 
-def display_advanced_spending_analysis(user_dataframes, selected_user_id):
-    """Display the advanced spending analysis page with enhanced features"""
+def display_ml_predictive_analytics_page(user_dataframes, selected_user_id):
+    """Simplified ML-based predictive analytics page focusing on predictions and anomalies"""
     
-    st.title("🔍 Advanced Spending Intelligence")
-    st.markdown("*Comprehensive analysis with AI-powered insights and predictive analytics*")
+    st.title("🤖 AI Expense Forecasting")
+    st.markdown("*Predict your future spending patterns and detect unusual behavior*")
     st.markdown("---")
     
-    # Initialize analyzers
-    spending_analyzer = SpendingAnalyzer(user_dataframes)
+    # Initialize ML analyzer
+    analyzer = MLPredictiveAnalyzer(user_dataframes)
     
-    # Enhanced sidebar controls
-    st.sidebar.header("🎛️ Analysis Controls")
+    # Quick data validation
+    if user_dataframes.get('transactions', pd.DataFrame()).empty:
+        st.error("❌ No transaction data available. Please ensure transaction data is loaded.")
+        return
     
-    # Time period selection with more options
-    time_period_options = {
-        "Last 30 Days": "1_month",
-        "Last 3 Months": "3_months", 
-        "Last 6 Months": "6_months",
-        "Last Year": "1_year",
-        "Custom Range": "custom"
-    }
+    user_transactions = user_dataframes['transactions'][
+        user_dataframes['transactions']['client_id'] == selected_user_id
+    ]
     
-    selected_period_display = st.sidebar.selectbox(
-        "📅 Analysis Period",
-        options=list(time_period_options.keys()),
-        index=1
-    )
+    if user_transactions.empty:
+        st.warning(f"⚠️ No transactions found for user {selected_user_id}")
+        return
     
-    selected_period = time_period_options[selected_period_display]
+    # Quick data overview
+    transaction_count = len(user_transactions)
+    date_range = (pd.to_datetime(user_transactions['date']).max() - 
+                 pd.to_datetime(user_transactions['date']).min()).days
     
-    # Custom date range
-    start_date, end_date = None, None
-    if selected_period == "custom":
-        col1, col2 = st.sidebar.columns(2)
-        with col1:
-            start_date = st.date_input("Start Date")
-        with col2:
-            end_date = st.date_input("End Date")
+    if date_range < 180:
+        st.warning("⚠️ Limited data may affect prediction accuracy. Best results with 6+ months of data.")
     
-    # Analysis depth selection
-    analysis_depth = st.sidebar.selectbox(
-        "🔬 Analysis Depth",
-        ["Quick Overview", "Standard Analysis", "Deep Dive"],
-        index=1
-    )
-    
-    # Feature toggles
-    st.sidebar.subheader("📊 Features")
-    show_spending_predictions = st.sidebar.checkbox("📈 Spending Predictions", value=False)
-    show_anomaly_detection = st.sidebar.checkbox("🚨 Anomaly Detection", value=False)
-    
-    # Updated main content tabs
-    tab1, tab2, tab3 = st.tabs([
-        "📊 Overview Dashboard", 
-        "🛍️ Category Deep Dive", 
-        "🔮 Predictive Insights"
+    # Main content - just two tabs
+    tab1, tab2 = st.tabs([
+        "🔮 Future Predictions",
+        "🚨 Anomaly Detection"
     ])
     
     with tab1:
-        display_overview_dashboard(
-            spending_analyzer, selected_user_id, selected_period, start_date, end_date
-        )
+        display_future_expense_predictions(analyzer, selected_user_id)
     
     with tab2:
-        display_category_deep_dive(
-            spending_analyzer, selected_user_id, selected_period, start_date, end_date
-        )
+        display_anomaly_detection_section(analyzer, selected_user_id)
     
-    with tab3:
-        if show_spending_predictions or show_anomaly_detection:
-            display_predictive_insights(
-                spending_analyzer, selected_user_id, selected_period,
-                show_spending_predictions, show_anomaly_detection
-            )
-        else:
-            st.info("Enable Predictive features in the sidebar to view this analysis.")
+    # Simple footer
+    st.markdown("---")
+    st.markdown("### 💡 How It Works")
     
-    # Add helpful note about Merchant Intelligence
-    st.sidebar.markdown("---")
-    st.sidebar.info("💡 **Merchant Intelligence** is available as a dedicated page in the main navigation for comprehensive merchant analysis.")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **🎯 AI Predictions:**
+        - Analyzes your historical spending patterns
+        - Uses machine learning to forecast future expenses
+        - Considers seasonality and trends
+        - Provides confidence levels for reliability
+        """)
+    
+    with col2:
+        st.markdown("""
+        **🚨 Anomaly Detection:**
+        - Identifies unusual spending periods
+        - Compares against your normal patterns
+        - Adjustable sensitivity levels
+        - Helps spot potential issues early
+        """)
