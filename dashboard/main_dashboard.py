@@ -18,7 +18,7 @@ from predictive_page import display_ml_predictive_analytics_page
 
 # Page configuration
 st.set_page_config(
-    page_title="User's Expanses Dashboard",
+    page_title="User's Expenses Dashboard",
     page_icon="💳",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -174,7 +174,7 @@ def main():
     
     # Display selected page
     if page == "📊 Overview":
-        st.title("💳 User's Expanses Dashboard")
+        st.title("💳 User's Expenses Dashboard")
         st.markdown("*Comprehensive financial overview and key performance indicators*")
         st.markdown("---")
         display_overview_page(user_dataframes, selected_user_id)
