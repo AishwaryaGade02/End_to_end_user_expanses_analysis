@@ -1,12 +1,4 @@
 import os
-<<<<<<< HEAD
-=======
-os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-11-openjdk-amd64"
-
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import *
-from pyspark.sql.types import *
->>>>>>> bb3e6261e7adecdfcc227ba92fda530e55b1c051
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -196,23 +188,5 @@ class DataPreprocessor:
                 'fraud_labels': pd.DataFrame()
             }
 
-    def close_spark(self):
-<<<<<<< HEAD
-        pass
+    
 
-# ---------- MAIN for direct script execution ----------
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python src/data_preprocessing.py <data_path> <user_id>")
-        sys.exit(1)
-
-    data_path = sys.argv[1]
-    user_id = sys.argv[2]
-
-    processor = DataPreprocessor()
-    processor.set_data_path(data_path)
-    data = processor.load_user_specific_data(user_id)
-=======
-        """Close Spark session"""
-        self.spark.stop()
->>>>>>> bb3e6261e7adecdfcc227ba92fda530e55b1c051
