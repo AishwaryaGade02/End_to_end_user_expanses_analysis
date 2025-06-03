@@ -85,11 +85,10 @@ def load_user_data(user_id):
         
         # Convert to pandas for caching and faster operations
         pandas_dataframes = {}
-        for key, spark_df in spark_dataframes.items():
-            if spark_df.count() > 0:  # Only convert if DataFrame has data
-                pandas_dataframes[key] = spark_df.toPandas()
+        for key, df in spark_dataframes.items():
+            if not df.empty:
+                pandas_dataframes[key] = df
             else:
-                # Create empty pandas DataFrame with proper structure
                 pandas_dataframes[key] = pd.DataFrame()
         
         return pandas_dataframes
